@@ -365,6 +365,10 @@ describe("WrappedTokenBridge", () => {
         )
       ).to.be.eq(amount);
 
+      await wrappedToken
+        .connect(user)
+        .approve(wrappedTokenBridge.address, amount);
+
       // Tokens burned
       await wrappedTokenBridge
         .connect(user)
