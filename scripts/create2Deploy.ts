@@ -13,6 +13,8 @@ const { hexZeroPad, hexlify, keccak256, hexConcat, toUtf8Bytes } = utils;
 interface DeployOptions {
   salt?: string;
   proxy?: ProxyOptions;
+  creationCode?: string; // Deploy with custom creation code instead of fetching from artifacts.
+  abi?: any[]; // Manually inject abi into deployment file when custom creationCode is used.
 }
 
 interface ProxyOptions {
@@ -23,6 +25,7 @@ interface ProxyOptions {
     | "EIP173Proxy";
   ownerAddress: string;
   initData: string;
+  implementationName?: string;
 }
 
 export const create2Deploy = async (
@@ -32,24 +35,28 @@ export const create2Deploy = async (
   options?: DeployOptions,
   callOptions?: CallOptions
 ) => {
-  const { salt, proxy } = options ?? {};
+  options = options ?? {};
+
   const implementationAddress = await deployContract(
     contractName,
     args,
     deployer,
-    salt,
-    undefined,
+    options,
     callOptions
   );
 
-  if (proxy && implementationAddress) {
-    const implementationContractName = contractName;
+  if (options.proxy && implementationAddress) {
+    options.proxy.implementationName = contractName;
+
     await deployContract(
-      proxy.type,
-      [implementationAddress, proxy.ownerAddress, proxy.initData],
+      options.proxy.type,
+      [
+        implementationAddress,
+        options.proxy.ownerAddress,
+        options.proxy.initData,
+      ],
       deployer,
-      salt,
-      implementationContractName,
+      options,
       callOptions
     );
   }
@@ -59,20 +66,25 @@ const deployContract = async (
   contractName: string,
   args: any[],
   deployer: SignerWithAddress,
-  salt?: string,
-  implementationContractName?: string,
+  options: DeployOptions,
   callOptions?: CallOptions
 ): Promise<string | undefined> => {
-  const contractFactory = await hre.ethers.getContractFactory(contractName);
-  const creationCode = getCreationCode(contractFactory, args);
+  let creationCode: string;
 
-  const saltHash = salt
-    ? keccak256(toUtf8Bytes(salt))
+  if (options.creationCode) {
+    creationCode = options.creationCode;
+  } else {
+    const contractFactory = await hre.ethers.getContractFactory(contractName);
+    creationCode = getCreationCode(contractFactory, args);
+  }
+
+  options.salt = options.salt
+    ? keccak256(toUtf8Bytes(options.salt))
     : ethers.constants.HashZero;
 
   const deployedAddress = determineCreate2DeployedAddress(
     creationCode,
-    saltHash
+    options.salt
   );
 
   if (await isContractDeployed(deployedAddress)) {
@@ -85,7 +97,7 @@ const deployContract = async (
   const response = await sendCreate2Transaction(
     deployer,
     creationCode,
-    saltHash,
+    options.salt,
     callOptions
   );
   const receipt = await response.wait();
@@ -94,28 +106,16 @@ const deployContract = async (
     await saveDeploymentInfo(
       contractName,
       args,
-      creationCode,
-      saltHash,
+      deployedAddress,
       receipt,
-      implementationContractName
+      options
     );
+
     return deployedAddress;
   }
 };
 
-const getCreationCode = (contractFactory: any, args: any[]) => {
-  const creationCode = contractFactory
-    .getDeployTransaction(...args)
-    .data?.toString();
-  if (!creationCode) {
-    throw new Error(
-      "Unable to generate creation code. Check if contract name is valid."
-    );
-  }
-  return creationCode;
-};
-
-const sendCreate2Transaction = async (
+export const sendCreate2Transaction = async (
   deployer: SignerWithAddress,
   creationCode: string,
   salt: string,
@@ -129,25 +129,14 @@ const sendCreate2Transaction = async (
   });
 };
 
-const isContractDeployed = async (address: string): Promise<boolean> => {
-  try {
-    const code = await hre.ethers.provider.getCode(address);
-    return code !== "0x";
-  } catch (error) {
-    return false;
-  }
-};
-
-const saveDeploymentInfo = async (
+export const saveDeploymentInfo = async (
   contractName: string,
   args: any[],
-  creationCode: string,
-  salt: string,
+  deployedAddress: string,
   txReceipt: TransactionReceipt,
-  implementationContractName?: string
+  options: DeployOptions
 ) => {
   if (txReceipt.status && txReceipt.status !== 0) {
-    const deployedAddress = determineCreate2DeployedAddress(creationCode, salt);
     const networkName = hre.network.name;
     const directoryPath = path.join(__dirname, "../deployments", networkName);
 
@@ -155,29 +144,27 @@ const saveDeploymentInfo = async (
     await saveDeploymentFiles(
       contractName,
       args,
-      txReceipt,
       deployedAddress,
-      directoryPath,
-      salt,
-      implementationContractName
+      txReceipt,
+      options,
+      directoryPath
     );
   }
 };
 
-const saveDeploymentFiles = async (
+export const saveDeploymentFiles = async (
   contractName: string,
   args: any[],
-  txReceipt: TransactionReceipt,
   deployedAddress: string,
-  directoryPath: string,
-  salt: string,
-  implementationContractName?: string
+  txReceipt: TransactionReceipt,
+  options: DeployOptions,
+  directoryPath: string
 ) => {
   const timestamp = Math.floor(Date.now() / 1000);
   const chainId = (await hre.ethers.provider.getNetwork()).chainId;
 
-  const fileName = implementationContractName
-    ? `${implementationContractName}_Proxy`
+  const fileName = options.proxy?.implementationName
+    ? `${options.proxy?.implementationName}_Proxy`
     : contractName;
 
   const timestampFilePath = path.join(
@@ -187,13 +174,23 @@ const saveDeploymentFiles = async (
   const latestFilePath = path.join(directoryPath, `${fileName}-latest.json`);
   const chainIdFilePath = path.join(directoryPath, ".chainId");
 
+  let abi: any[] = [];
+
+  if (options.abi) {
+    abi = options.abi;
+  } else {
+    try {
+      abi = (await hre.artifacts.readArtifact(contractName)).abi;
+    } catch {}
+  }
+
   const deploymentInfo = {
     address: deployedAddress,
     transactionHash: txReceipt.transactionHash,
     args,
     receipt: txReceipt,
-    salt,
-    abi: (await hre.artifacts.readArtifact(contractName)).abi,
+    salt: options.salt,
+    abi,
   };
 
   await fs.writeFile(
@@ -207,6 +204,18 @@ const saveDeploymentFiles = async (
   }
 
   console.log(`Deployment info saved to ${latestFilePath}`);
+};
+
+const getCreationCode = (contractFactory: any, args: any[]) => {
+  const creationCode = contractFactory
+    .getDeployTransaction(...args)
+    .data?.toString();
+  if (!creationCode) {
+    throw new Error(
+      "Unable to generate creation code. Check if contract name is valid."
+    );
+  }
+  return creationCode;
 };
 
 export const determineCreate2DeployedAddress = (
@@ -225,6 +234,15 @@ export const determineCreate2DeployedAddress = (
       ])
     ).slice(-40)
   );
+};
+
+export const isContractDeployed = async (address: string): Promise<boolean> => {
+  try {
+    const code = await hre.ethers.provider.getCode(address);
+    return code !== "0x";
+  } catch (error) {
+    return false;
+  }
 };
 
 const createDirectoryIfNotExists = async (directoryPath: string) => {
