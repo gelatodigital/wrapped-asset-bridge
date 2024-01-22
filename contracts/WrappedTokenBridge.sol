@@ -139,7 +139,7 @@ contract WrappedTokenBridge is TokenBridgeBaseUpgradeable {
         );
 
         totalValueLocked[remoteChainId][remoteToken] -= amount;
-        IWrappedERC20(localToken).burn(msg.sender, amount);
+        _burn(localToken, msg.sender, amount);
 
         uint withdrawalAmount = amount;
         if (withdrawalFeeBps > 0) {
@@ -191,5 +191,18 @@ contract WrappedTokenBridge is TokenBridgeBaseUpgradeable {
         IWrappedERC20(localToken).mint(to, amount);
 
         emit WrapToken(localToken, remoteToken, srcChainId, to, amount);
+    }
+
+    /// @notice Transfers WrappedERC20 to bridge before burning.
+    /// @dev This requires allowance to burn WrappedERC20.
+    function _burn(
+        address _localToken,
+        address _from,
+        uint256 _amount
+    ) internal {
+        IWrappedERC20 token = IWrappedERC20(_localToken);
+
+        token.transferFrom(_from, address(this), _amount);
+        token.burn(address(this), _amount);
     }
 }
