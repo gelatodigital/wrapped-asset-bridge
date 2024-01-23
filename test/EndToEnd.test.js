@@ -33,25 +33,66 @@ describe("End to End", function () {
     weth = await wethFactory.deploy();
     wmatic = await wethFactory.deploy();
 
+    const eip173ProxyFactory = await ethers.getContractFactory(
+      "EIP173Proxy2StepWithCustomReceive"
+    );
     const originalTokenBridgeFactory = await ethers.getContractFactory(
       "OriginalTokenBridge"
     );
-    ethereumBridge = await originalTokenBridgeFactory.deploy(
-      ethereumEndpoint.address,
-      wrappedTokenChainId,
-      weth.address
+    const ethereumBridgeImplementation =
+      await originalTokenBridgeFactory.deploy(
+        ethereumEndpoint.address,
+        weth.address
+      );
+    const originalTokenBridgeInitData =
+      ethereumBridgeImplementation.interface.encodeFunctionData("initialize", [
+        wrappedTokenChainId,
+      ]);
+
+    const ethereumBridgeProxy = await eip173ProxyFactory.deploy(
+      ethereumBridgeImplementation.address,
+      owner.address,
+      originalTokenBridgeInitData
     );
-    polygonBridge = await originalTokenBridgeFactory.deploy(
-      polygonEndpoint.address,
-      wrappedTokenChainId,
-      wmatic.address
+    ethereumBridge = new ethers.Contract(
+      ethereumBridgeProxy.address,
+      ethereumBridgeImplementation.interface,
+      owner
     );
 
+    const polygonBridgeImplementation = await originalTokenBridgeFactory.deploy(
+      polygonEndpoint.address,
+      wmatic.address
+    );
+    const polygonBridgeProxy = await eip173ProxyFactory.deploy(
+      polygonBridgeImplementation.address,
+      owner.address,
+      originalTokenBridgeInitData
+    );
+    polygonBridge = new ethers.Contract(
+      polygonBridgeProxy.address,
+      polygonBridgeImplementation.interface,
+      owner
+    );
     const wrappedTokenBridgeFactory = await ethers.getContractFactory(
       "WrappedTokenBridge"
     );
-    wrappedTokenBridge = await wrappedTokenBridgeFactory.deploy(
-      wrappedTokenEndpoint.address
+    const wrappedTokenBridgeImplementation =
+      await wrappedTokenBridgeFactory.deploy(wrappedTokenEndpoint.address);
+    const wrappedTokenBridgeInitData =
+      wrappedTokenBridgeImplementation.interface.encodeFunctionData(
+        "initialize",
+        []
+      );
+    const wrappedTokenBridgeProxy = await eip173ProxyFactory.deploy(
+      wrappedTokenBridgeImplementation.address,
+      owner.address,
+      wrappedTokenBridgeInitData
+    );
+    wrappedTokenBridge = new ethers.Contract(
+      wrappedTokenBridgeProxy.address,
+      wrappedTokenBridgeImplementation.interface,
+      owner
     );
 
     const ERC20Factory = await ethers.getContractFactory("MintableERC20Mock");
