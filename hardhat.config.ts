@@ -6,12 +6,12 @@ dotenv.config();
 import "@matterlabs/hardhat-zksync-solc";
 import "@matterlabs/hardhat-zksync-verify";
 import "@nomiclabs/hardhat-waffle";
-import "hardhat-contract-sizer";
 import "hardhat-deploy";
 import "hardhat-deploy-ethers";
-import "hardhat-gas-reporter";
-import "solidity-coverage";
 import "./tasks/index";
+// import "hardhat-contract-sizer";
+// import "hardhat-gas-reporter";
+// import "solidity-coverage";
 
 // Libraries
 import assert from "assert";
@@ -24,6 +24,8 @@ assert.ok(INFURA_ID, "no Infura ID in process.env");
 const DEPLOYER_PK = process.env.DEPLOYER_PK;
 assert.ok(INFURA_ID, "no Deployer PK in process.env");
 
+const ETHERSCAN_API_KEY = process.env.ETHERSCAN_API_KEY as string;
+
 const config: HardhatUserConfig = {
   namedAccounts: {
     deployer: {
@@ -32,14 +34,7 @@ const config: HardhatUserConfig = {
   },
 
   networks: {
-    hardhat: {
-      // Standard config
-      // timeout: 150000,
-      forking: {
-        url: `https://eth-mainnet.alchemyapi.io/v2/${ALCHEMY_ID}`,
-        blockNumber: 18000000,
-      },
-    },
+    hardhat: {},
 
     // Local
     zksyncLocal: {
@@ -87,7 +82,7 @@ const config: HardhatUserConfig = {
       chainId: 59144,
       accounts: DEPLOYER_PK ? [DEPLOYER_PK] : [],
     },
-    mainnet: {
+    ethereum: {
       accounts: DEPLOYER_PK ? [DEPLOYER_PK] : [],
       chainId: 1,
       url: `https://eth-mainnet.alchemyapi.io/v2/${ALCHEMY_ID}`,
@@ -202,6 +197,10 @@ const config: HardhatUserConfig = {
     alphaSort: false,
     runOnCompile: true,
     disambiguatePaths: false,
+  },
+
+  etherscan: {
+    apiKey: ETHERSCAN_API_KEY,
   },
 };
 

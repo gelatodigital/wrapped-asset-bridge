@@ -2,14 +2,17 @@
 pragma solidity ^0.8.17;
 
 import {
-    ReentrancyGuard
-} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+    ReentrancyGuardUpgradeable
+} from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import {
-    NonblockingLzApp
-} from "@layerzerolabs/solidity-examples/contracts/lzApp/NonblockingLzApp.sol";
+    NonblockingLzAppUpgradeable
+} from "./vendor/layerzerolabs/lzApp/NonblockingLzAppUpgradeable.sol";
 
 /// @dev An abstract contract containing a common functionality used by OriginalTokenBridge and WrappedTokenBridge
-abstract contract TokenBridgeBase is NonblockingLzApp, ReentrancyGuard {
+abstract contract TokenBridgeBaseUpgradeable is
+    NonblockingLzAppUpgradeable,
+    ReentrancyGuardUpgradeable
+{
     /// @notice A packet type used to identify messages requesting minting of wrapped tokens
     uint8 public constant PT_MINT = 0;
 
@@ -20,13 +23,17 @@ abstract contract TokenBridgeBase is NonblockingLzApp, ReentrancyGuard {
 
     event SetUseCustomAdapterParams(bool useCustomAdapterParams);
 
-    constructor(address _endpoint) NonblockingLzApp(_endpoint) {}
+    constructor(address _endpoint) NonblockingLzAppUpgradeable(_endpoint) {}
+
+    function __TokenBridgeBase_init() internal onlyInitializing {
+        __ReentrancyGuard_init_unchained();
+    }
 
     /// @notice Sets the `useCustomAdapterParams` flag indicating whether the contract uses custom adapter parameters or the default ones
     /// @dev Can be called only by the bridge owner
     function setUseCustomAdapterParams(
         bool _useCustomAdapterParams
-    ) external onlyOwner {
+    ) external onlyProxyAdmin {
         useCustomAdapterParams = _useCustomAdapterParams;
         emit SetUseCustomAdapterParams(_useCustomAdapterParams);
     }
@@ -46,7 +53,4 @@ abstract contract TokenBridgeBase is NonblockingLzApp, ReentrancyGuard {
             );
         }
     }
-
-    /// @dev Overrides the renounce ownership logic inherited from openZeppelin `Ownable`
-    function renounceOwnership() public override onlyOwner {}
 }

@@ -31,20 +31,52 @@ describe("WrappedTokenBridge", () => {
 
     const wethFactory = await ethers.getContractFactory("WETH9");
     const weth = await wethFactory.deploy();
+
+    const eip173ProxyFactory = await ethers.getContractFactory(
+      "EIP173Proxy2StepWithCustomReceive"
+    );
+
     const originalTokenBridgeFactory = await ethers.getContractFactory(
       "OriginalTokenBridge"
     );
-    const originalTokenBridge = await originalTokenBridgeFactory.deploy(
-      originalTokenEndpoint.address,
-      wrappedTokenChainId,
-      weth.address
+    const originalTokenBridgeImplementation =
+      await originalTokenBridgeFactory.deploy(
+        originalTokenEndpoint.address,
+        weth.address
+      );
+    const originalTokenBridgeInitData =
+      originalTokenBridgeImplementation.interface.encodeFunctionData(
+        "initialize",
+        [wrappedTokenChainId]
+      );
+    const originalTokenBridgeProxy = await eip173ProxyFactory.deploy(
+      originalTokenBridgeImplementation.address,
+      owner.address,
+      originalTokenBridgeInitData
+    );
+    const originalTokenBridge = await ethers.getContractAt(
+      "OriginalTokenBridge",
+      originalTokenBridgeProxy.address
     );
 
-    wrappedTokenBridgeFactory = await ethers.getContractFactory(
+    const wrappedTokenBridgeFactory = await ethers.getContractFactory(
       "WrappedTokenBridgeHarness"
     );
-    wrappedTokenBridge = await wrappedTokenBridgeFactory.deploy(
-      wrappedTokenEndpoint.address
+    const wrappedTokenBridgeImplementation =
+      await wrappedTokenBridgeFactory.deploy(wrappedTokenEndpoint.address);
+    const wrappedTokenBridgeInitData =
+      wrappedTokenBridgeImplementation.interface.encodeFunctionData(
+        "initialize",
+        []
+      );
+    const wrappedTokenBridgeProxy = await eip173ProxyFactory.deploy(
+      wrappedTokenBridgeImplementation.address,
+      owner.address,
+      wrappedTokenBridgeInitData
+    );
+    wrappedTokenBridge = await ethers.getContractAt(
+      "WrappedTokenBridgeHarness",
+      wrappedTokenBridgeProxy.address
     );
 
     const ERC20Factory = await ethers.getContractFactory("MintableERC20Mock");
@@ -71,11 +103,6 @@ describe("WrappedTokenBridge", () => {
     adapterParams = "0x";
   });
 
-  it("doesn't renounce ownership", async () => {
-    await wrappedTokenBridge.renounceOwnership();
-    expect(await wrappedTokenBridge.owner()).to.be.eq(owner.address);
-  });
-
   describe("registerToken", () => {
     it("reverts when called by non owner", async () => {
       await expect(
@@ -86,7 +113,7 @@ describe("WrappedTokenBridge", () => {
             originalTokenChainId,
             originalToken.address
           )
-      ).to.be.revertedWith("Ownable: caller is not the owner");
+      ).to.be.revertedWith(`NOT_AUTHORIZED`);
     });
 
     it("reverts when local token is address zero", async () => {
@@ -157,7 +184,7 @@ describe("WrappedTokenBridge", () => {
     it("reverts when called by non owner", async () => {
       await expect(
         wrappedTokenBridge.connect(user).setWithdrawalFeeBps(withdrawalFeeBps)
-      ).to.be.revertedWith("Ownable: caller is not the owner");
+      ).to.be.revertedWith(`NOT_AUTHORIZED`);
     });
 
     it("sets withdrawal fee bps", async () => {

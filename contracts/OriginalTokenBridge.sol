@@ -5,14 +5,12 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {
     SafeERC20
 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {
-    LzLib
-} from "@layerzerolabs/solidity-examples/contracts/libraries/LzLib.sol";
-import {TokenBridgeBase} from "./TokenBridgeBase.sol";
+import {LzLib} from "./vendor/layerzerolabs/libraries/LzLib.sol";
+import {TokenBridgeBaseUpgradeable} from "./TokenBridgeBaseUpgradeable.sol";
 import {IWETH} from "./interfaces/IWETH.sol";
 
 /// @dev Locks an ERC20 on the source chain and sends LZ message to the remote chain to mint a wrapped token
-contract OriginalTokenBridge is TokenBridgeBase {
+contract OriginalTokenBridge is TokenBridgeBaseUpgradeable {
     using SafeERC20 for IERC20;
 
     /// @notice Tokens that can be bridged to the remote chain
@@ -39,15 +37,18 @@ contract OriginalTokenBridge is TokenBridgeBase {
 
     constructor(
         address _endpoint,
-        uint16 _remoteChainId,
         address _weth
-    ) TokenBridgeBase(_endpoint) {
+    ) TokenBridgeBaseUpgradeable(_endpoint) {
         require(
             _weth != address(0),
             "OriginalTokenBridge: invalid WETH address"
         );
-        remoteChainId = _remoteChainId;
         weth = _weth;
+    }
+
+    function initialize(uint16 _remoteChainId) external initializer {
+        __TokenBridgeBase_init();
+        remoteChainId = _remoteChainId;
     }
 
     /// @notice Registers a token for bridging
@@ -57,7 +58,7 @@ contract OriginalTokenBridge is TokenBridgeBase {
     function registerToken(
         address token,
         uint8 sharedDecimals
-    ) external onlyOwner {
+    ) external onlyProxyAdmin {
         require(
             token != address(0),
             "OriginalTokenBridge: invalid token address"
@@ -78,7 +79,7 @@ contract OriginalTokenBridge is TokenBridgeBase {
         emit RegisterToken(token);
     }
 
-    function setRemoteChainId(uint16 _remoteChainId) external onlyOwner {
+    function setRemoteChainId(uint16 _remoteChainId) external onlyProxyAdmin {
         remoteChainId = _remoteChainId;
         emit SetRemoteChainId(_remoteChainId);
     }
@@ -207,7 +208,7 @@ contract OriginalTokenBridge is TokenBridgeBase {
         address token,
         address to,
         uint amountLD
-    ) public onlyOwner {
+    ) public onlyProxyAdmin {
         uint feeLD = accruedFeeLD(token);
         require(
             amountLD <= feeLD,
