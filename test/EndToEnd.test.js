@@ -300,6 +300,10 @@ describe("End to End", function () {
             false,
             adapterParams
           );
+          await wrappedToken
+            .connect(user)
+            .approve(wrappedTokenBridge.address, ethereumAmountSD);
+
           await wrappedTokenBridge
             .connect(user)
             .bridge(
@@ -346,6 +350,11 @@ describe("End to End", function () {
               false,
               adapterParams
             );
+
+            await wrappedToken
+              .connect(user)
+              .approve(wrappedTokenBridge.address, polygonAmountSD);
+
             await wrappedTokenBridge
               .connect(user)
               .bridge(
@@ -444,6 +453,11 @@ describe("End to End", function () {
           false,
           adapterParams
         );
+
+        await wrappedToken
+          .connect(user)
+          .approve(wrappedTokenBridge.address, ethereumAmount);
+
         await wrappedTokenBridge
           .connect(user)
           .bridge(
