@@ -2,18 +2,20 @@
 
 pragma solidity ^0.8.0;
 
-import "./LzApp.sol";
+import "./LzAppUpgradeable.sol";
 import "../util/ExcessivelySafeCall.sol";
 
 /*
+ * Upgradeable version of NonblockingLzApp in @layerzerolabs/solidity-examples
+ *
  * the default LayerZero messaging behaviour is blocking, i.e. any failed message will block the channel
  * this abstract class try-catch all fail messages and store locally for future retry. hence, non-blocking
  * NOTE: if the srcAddress is not configured properly, it will still block the message pathway from (srcChainId, srcAddress)
  */
-abstract contract NonblockingLzApp is LzApp {
+abstract contract NonblockingLzAppUpgradeable is LzAppUpgradeable {
     using ExcessivelySafeCall for address;
 
-    constructor(address _endpoint) LzApp(_endpoint) {}
+    constructor(address _endpoint) LzAppUpgradeable(_endpoint) {}
 
     mapping(uint16 => mapping(bytes => mapping(uint64 => bytes32)))
         public failedMessages;
@@ -81,7 +83,7 @@ abstract contract NonblockingLzApp is LzApp {
     ) public virtual {
         // only internal transaction
         require(
-            _msgSender() == address(this),
+            msg.sender == address(this),
             "NonblockingLzApp: caller must be LzApp"
         );
         _nonblockingLzReceive(_srcChainId, _srcAddress, _nonce, _payload);

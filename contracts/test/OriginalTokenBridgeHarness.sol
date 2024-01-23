@@ -7,9 +7,8 @@ import {OriginalTokenBridge} from "../OriginalTokenBridge.sol";
 contract OriginalTokenBridgeHarness is OriginalTokenBridge {
     constructor(
         address _endpoint,
-        uint16 _remoteChainId,
         address _weth
-    ) OriginalTokenBridge(_endpoint, _remoteChainId, _weth) {}
+    ) OriginalTokenBridge(_endpoint, _weth) {}
 
     function simulateNonblockingLzReceive(
         uint16 srcChainId,

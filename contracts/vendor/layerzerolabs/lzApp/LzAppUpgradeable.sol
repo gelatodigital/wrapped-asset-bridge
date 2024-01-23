@@ -2,17 +2,19 @@
 
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "../../proxy/Proxied.sol";
 import "../interfaces/ILayerZeroReceiver.sol";
 import "../interfaces/ILayerZeroUserApplicationConfig.sol";
 import "../interfaces/ILayerZeroEndpoint.sol";
 import "../util/BytesLib.sol";
 
 /*
+ * Upgradeable version of LzApp in @layerzerolabs/solidity-examples
+ *
  * a generic LzReceiver implementation
  */
-abstract contract LzApp is
-    Ownable,
+abstract contract LzAppUpgradeable is
+    Proxied,
     ILayerZeroReceiver,
     ILayerZeroUserApplicationConfig
 {
@@ -40,7 +42,7 @@ abstract contract LzApp is
     ) public virtual override {
         // lzReceive must be called by the endpoint for security
         require(
-            _msgSender() == address(lzEndpoint),
+            msg.sender == address(lzEndpoint),
             "LzApp: invalid endpoint caller"
         );
 
@@ -130,22 +132,24 @@ abstract contract LzApp is
         uint16 _chainId,
         uint _configType,
         bytes calldata _config
-    ) external override onlyOwner {
+    ) external override onlyProxyAdmin {
         lzEndpoint.setConfig(_version, _chainId, _configType, _config);
     }
 
-    function setSendVersion(uint16 _version) external override onlyOwner {
+    function setSendVersion(uint16 _version) external override onlyProxyAdmin {
         lzEndpoint.setSendVersion(_version);
     }
 
-    function setReceiveVersion(uint16 _version) external override onlyOwner {
+    function setReceiveVersion(
+        uint16 _version
+    ) external override onlyProxyAdmin {
         lzEndpoint.setReceiveVersion(_version);
     }
 
     function forceResumeReceive(
         uint16 _srcChainId,
         bytes calldata _srcAddress
-    ) external override onlyOwner {
+    ) external override onlyProxyAdmin {
         lzEndpoint.forceResumeReceive(_srcChainId, _srcAddress);
     }
 
@@ -154,7 +158,7 @@ abstract contract LzApp is
     function setTrustedRemote(
         uint16 _srcChainId,
         bytes calldata _path
-    ) external onlyOwner {
+    ) external onlyProxyAdmin {
         trustedRemoteLookup[_srcChainId] = _path;
         emit SetTrustedRemote(_srcChainId, _path);
     }
@@ -162,7 +166,7 @@ abstract contract LzApp is
     function setTrustedRemoteAddress(
         uint16 _remoteChainId,
         bytes calldata _remoteAddress
-    ) external onlyOwner {
+    ) external onlyProxyAdmin {
         trustedRemoteLookup[_remoteChainId] = abi.encodePacked(
             _remoteAddress,
             address(this)
@@ -178,7 +182,7 @@ abstract contract LzApp is
         return path.slice(0, path.length - 20); // the last 20 bytes should be address(this)
     }
 
-    function setPrecrime(address _precrime) external onlyOwner {
+    function setPrecrime(address _precrime) external onlyProxyAdmin {
         precrime = _precrime;
         emit SetPrecrime(_precrime);
     }
@@ -187,7 +191,7 @@ abstract contract LzApp is
         uint16 _dstChainId,
         uint16 _packetType,
         uint _minGas
-    ) external onlyOwner {
+    ) external onlyProxyAdmin {
         require(_minGas > 0, "LzApp: invalid minGas");
         minDstGasLookup[_dstChainId][_packetType] = _minGas;
         emit SetMinDstGas(_dstChainId, _packetType, _minGas);

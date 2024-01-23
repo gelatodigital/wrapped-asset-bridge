@@ -2,14 +2,12 @@
 pragma solidity ^0.8.17;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {
-    LzLib
-} from "@layerzerolabs/solidity-examples/contracts/libraries/LzLib.sol";
-import {TokenBridgeBase} from "./TokenBridgeBase.sol";
+import {LzLib} from "./vendor/layerzerolabs/libraries/LzLib.sol";
+import {TokenBridgeBaseUpgradeable} from "./TokenBridgeBaseUpgradeable.sol";
 import {IWrappedERC20} from "./interfaces/IWrappedERC20.sol";
 
 /// @dev Mints a wrapped token when a message received from a remote chain and burns a wrapped token when bridging to a remote chain
-contract WrappedTokenBridge is TokenBridgeBase {
+contract WrappedTokenBridge is TokenBridgeBaseUpgradeable {
     /// @notice Total bps representing 100%
     uint16 public constant TOTAL_BPS = 10000;
 
@@ -49,13 +47,17 @@ contract WrappedTokenBridge is TokenBridgeBase {
     );
     event SetWithdrawalFeeBps(uint16 withdrawalFeeBps);
 
-    constructor(address _endpoint) TokenBridgeBase(_endpoint) {}
+    constructor(address _endpoint) TokenBridgeBaseUpgradeable(_endpoint) {}
+
+    function initialize() external initializer {
+        __TokenBridgeBase_init();
+    }
 
     function registerToken(
         address localToken,
         uint16 remoteChainId,
         address remoteToken
-    ) external onlyOwner {
+    ) external onlyProxyAdmin {
         require(
             localToken != address(0),
             "WrappedTokenBridge: invalid local token"
@@ -75,7 +77,9 @@ contract WrappedTokenBridge is TokenBridgeBase {
         emit RegisterToken(localToken, remoteChainId, remoteToken);
     }
 
-    function setWithdrawalFeeBps(uint16 _withdrawalFeeBps) external onlyOwner {
+    function setWithdrawalFeeBps(
+        uint16 _withdrawalFeeBps
+    ) external onlyProxyAdmin {
         require(
             _withdrawalFeeBps < TOTAL_BPS,
             "WrappedTokenBridge: invalid withdrawal fee bps"
