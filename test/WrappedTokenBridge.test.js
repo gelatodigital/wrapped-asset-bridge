@@ -1,10 +1,11 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 const { utils, constants } = require("ethers");
+const { deployLzV2Endpoint } = require("./utils/lzV2Endpoint");
 
 describe("WrappedTokenBridge", () => {
-  const originalTokenChainId = 0;
-  const wrappedTokenChainId = 1;
+  const originalTokenEid = 0;
+  const wrappedTokenEid = 1;
   const amount = utils.parseEther("10");
   const pkMint = 0;
 
@@ -12,7 +13,7 @@ describe("WrappedTokenBridge", () => {
   let originalToken, wrappedToken;
   let wrappedTokenBridge;
   let wrappedTokenEndpoint, wrappedTokenBridgeFactory;
-  let callParams, adapterParams;
+  let refundAddress, options;
 
   const createPayload = (pk = pkMint, token = originalToken.address) =>
     utils.defaultAbiCoder.encode(
@@ -23,11 +24,14 @@ describe("WrappedTokenBridge", () => {
   beforeEach(async () => {
     [owner, user] = await ethers.getSigners();
 
-    const endpointFactory = await ethers.getContractFactory(
-      "LayerZeroEndpointStub"
+    const originalTokenEndpoint = await deployLzV2Endpoint(
+      owner,
+      originalTokenEid,
+      [wrappedTokenEid]
     );
-    const originalTokenEndpoint = await endpointFactory.deploy();
-    wrappedTokenEndpoint = await endpointFactory.deploy();
+    wrappedTokenEndpoint = await deployLzV2Endpoint(owner, wrappedTokenEid, [
+      originalTokenEid,
+    ]);
 
     const wethFactory = await ethers.getContractFactory("WETH9");
     const weth = await wethFactory.deploy();
@@ -47,7 +51,7 @@ describe("WrappedTokenBridge", () => {
     const originalTokenBridgeInitData =
       originalTokenBridgeImplementation.interface.encodeFunctionData(
         "initialize",
-        [wrappedTokenChainId]
+        [wrappedTokenEid]
       );
     const originalTokenBridgeProxy = await eip173ProxyFactory.deploy(
       originalTokenBridgeImplementation.address,
@@ -91,16 +95,18 @@ describe("WrappedTokenBridge", () => {
       originalERC20Decimals
     );
 
-    await wrappedTokenBridge.setTrustedRemoteAddress(
-      originalTokenChainId,
-      originalTokenBridge.address
+    await originalTokenBridge.setPeer(
+      wrappedTokenEid,
+      ethers.utils.hexZeroPad(wrappedTokenBridge.address, 32)
     );
 
-    callParams = {
-      refundAddress: user.address,
-      zroPaymentAddress: constants.AddressZero,
-    };
-    adapterParams = "0x";
+    await wrappedTokenBridge.setPeer(
+      originalTokenEid,
+      ethers.utils.hexZeroPad(originalTokenBridge.address, 32)
+    );
+
+    refundAddress = user.address;
+    options = "0x";
   });
 
   describe("registerToken", () => {
@@ -110,7 +116,7 @@ describe("WrappedTokenBridge", () => {
           .connect(user)
           .registerToken(
             wrappedToken.address,
-            originalTokenChainId,
+            originalTokenEid,
             originalToken.address
           )
       ).to.be.revertedWith(`NOT_AUTHORIZED`);
@@ -120,7 +126,7 @@ describe("WrappedTokenBridge", () => {
       await expect(
         wrappedTokenBridge.registerToken(
           constants.AddressZero,
-          originalTokenChainId,
+          originalTokenEid,
           originalToken.address
         )
       ).to.be.revertedWith("WrappedTokenBridge: invalid local token");
@@ -130,7 +136,7 @@ describe("WrappedTokenBridge", () => {
       await expect(
         wrappedTokenBridge.registerToken(
           wrappedToken.address,
-          originalTokenChainId,
+          originalTokenEid,
           constants.AddressZero
         )
       ).to.be.revertedWith("WrappedTokenBridge: invalid remote token");
@@ -139,13 +145,13 @@ describe("WrappedTokenBridge", () => {
     it("reverts if token already registered", async () => {
       await wrappedTokenBridge.registerToken(
         wrappedToken.address,
-        originalTokenChainId,
+        originalTokenEid,
         originalToken.address
       );
       await expect(
         wrappedTokenBridge.registerToken(
           wrappedToken.address,
-          originalTokenChainId,
+          originalTokenEid,
           originalToken.address
         )
       ).to.be.revertedWith("WrappedTokenBridge: token already registered");
@@ -154,20 +160,20 @@ describe("WrappedTokenBridge", () => {
     it("registers tokens", async () => {
       await wrappedTokenBridge.registerToken(
         wrappedToken.address,
-        originalTokenChainId,
+        originalTokenEid,
         originalToken.address
       );
 
       expect(
         await wrappedTokenBridge.localToRemote(
           wrappedToken.address,
-          originalTokenChainId
+          originalTokenEid
         )
       ).to.be.eq(originalToken.address);
       expect(
         await wrappedTokenBridge.remoteToLocal(
           originalToken.address,
-          originalTokenChainId
+          originalTokenEid
         )
       ).to.be.eq(wrappedToken.address);
     });
@@ -199,8 +205,12 @@ describe("WrappedTokenBridge", () => {
     it("reverts when payload has incorrect packet type", async () => {
       const pkInvalid = 1;
       await expect(
-        wrappedTokenBridge.simulateNonblockingLzReceive(
-          originalTokenChainId,
+        wrappedTokenBridge.simulateLzReceive(
+          {
+            srcEid: originalTokenEid,
+            sender: ethers.utils.hexZeroPad(user.address, 32),
+            nonce: 0,
+          },
           createPayload(pkInvalid)
         )
       ).to.be.revertedWith("WrappedTokenBridge: unknown packet type");
@@ -208,8 +218,12 @@ describe("WrappedTokenBridge", () => {
 
     it("reverts when tokens aren't registered", async () => {
       await expect(
-        wrappedTokenBridge.simulateNonblockingLzReceive(
-          originalTokenChainId,
+        wrappedTokenBridge.simulateLzReceive(
+          {
+            srcEid: originalTokenEid,
+            sender: ethers.utils.hexZeroPad(user.address, 32),
+            nonce: 0,
+          },
           createPayload()
         )
       ).to.be.revertedWith("WrappedTokenBridge: token is not supported");
@@ -218,11 +232,15 @@ describe("WrappedTokenBridge", () => {
     it("mints wrapped tokens", async () => {
       await wrappedTokenBridge.registerToken(
         wrappedToken.address,
-        originalTokenChainId,
+        originalTokenEid,
         originalToken.address
       );
-      await wrappedTokenBridge.simulateNonblockingLzReceive(
-        originalTokenChainId,
+      await wrappedTokenBridge.simulateLzReceive(
+        {
+          srcEid: originalTokenEid,
+          sender: ethers.utils.hexZeroPad(user.address, 32),
+          nonce: 0,
+        },
         createPayload()
       );
 
@@ -230,7 +248,7 @@ describe("WrappedTokenBridge", () => {
       expect(await wrappedToken.balanceOf(user.address)).to.be.eq(amount);
       expect(
         await wrappedTokenBridge.totalValueLocked(
-          originalTokenChainId,
+          originalTokenEid,
           originalToken.address
         )
       ).to.be.eq(amount);
@@ -240,13 +258,8 @@ describe("WrappedTokenBridge", () => {
   describe("bridge", () => {
     let fee;
     beforeEach(async () => {
-      fee = (
-        await wrappedTokenBridge.estimateBridgeFee(
-          originalTokenChainId,
-          false,
-          adapterParams
-        )
-      ).nativeFee;
+      fee = (await wrappedTokenBridge.quote(originalTokenEid, false, options))
+        .nativeFee;
     });
 
     it("reverts when token is address zero", async () => {
@@ -255,12 +268,12 @@ describe("WrappedTokenBridge", () => {
           .connect(user)
           .bridge(
             constants.AddressZero,
-            originalTokenChainId,
+            originalTokenEid,
             amount,
             user.address,
             false,
-            callParams,
-            adapterParams,
+            options,
+            refundAddress,
             { value: fee }
           )
       ).to.be.revertedWith("WrappedTokenBridge: invalid token");
@@ -272,36 +285,15 @@ describe("WrappedTokenBridge", () => {
           .connect(user)
           .bridge(
             wrappedToken.address,
-            originalTokenChainId,
+            originalTokenEid,
             amount,
             constants.AddressZero,
             false,
-            callParams,
-            adapterParams,
+            options,
+            refundAddress,
             { value: fee }
           )
       ).to.be.revertedWith("WrappedTokenBridge: invalid to");
-    });
-
-    it("reverts when useCustomAdapterParams is false and non-empty adapterParams are passed", async () => {
-      const adapterParamsV1 = ethers.utils.solidityPack(
-        ["uint16", "uint256"],
-        [1, 200000]
-      );
-      await expect(
-        wrappedTokenBridge
-          .connect(user)
-          .bridge(
-            wrappedToken.address,
-            originalTokenChainId,
-            amount,
-            user.address,
-            false,
-            callParams,
-            adapterParamsV1,
-            { value: fee }
-          )
-      ).to.be.revertedWith("TokenBridgeBase: adapterParams must be empty");
     });
 
     it("reverts when token is not registered", async () => {
@@ -310,12 +302,12 @@ describe("WrappedTokenBridge", () => {
           .connect(user)
           .bridge(
             wrappedToken.address,
-            originalTokenChainId,
+            originalTokenEid,
             amount,
             user.address,
             false,
-            callParams,
-            adapterParams,
+            options,
+            refundAddress,
             { value: fee }
           )
       ).to.be.revertedWith("WrappedTokenBridge: token is not supported");
@@ -324,7 +316,7 @@ describe("WrappedTokenBridge", () => {
     it("reverts when amount is 0", async () => {
       await wrappedTokenBridge.registerToken(
         wrappedToken.address,
-        originalTokenChainId,
+        originalTokenEid,
         originalToken.address
       );
       await expect(
@@ -332,12 +324,12 @@ describe("WrappedTokenBridge", () => {
           .connect(user)
           .bridge(
             wrappedToken.address,
-            originalTokenChainId,
+            originalTokenEid,
             0,
             user.address,
             false,
-            callParams,
-            adapterParams,
+            options,
+            refundAddress,
             { value: fee }
           )
       ).to.be.revertedWith("WrappedTokenBridge: invalid amount");
@@ -346,13 +338,17 @@ describe("WrappedTokenBridge", () => {
     it("burns wrapped tokens", async () => {
       await wrappedTokenBridge.registerToken(
         wrappedToken.address,
-        originalTokenChainId,
+        originalTokenEid,
         originalToken.address
       );
 
       // Tokens minted
-      await wrappedTokenBridge.simulateNonblockingLzReceive(
-        originalTokenChainId,
+      await wrappedTokenBridge.simulateLzReceive(
+        {
+          srcEid: originalTokenEid,
+          sender: ethers.utils.hexZeroPad(user.address, 32),
+          nonce: 0,
+        },
         createPayload()
       );
 
@@ -360,7 +356,7 @@ describe("WrappedTokenBridge", () => {
       expect(await wrappedToken.balanceOf(user.address)).to.be.eq(amount);
       expect(
         await wrappedTokenBridge.totalValueLocked(
-          originalTokenChainId,
+          originalTokenEid,
           originalToken.address
         )
       ).to.be.eq(amount);
@@ -374,12 +370,12 @@ describe("WrappedTokenBridge", () => {
         .connect(user)
         .bridge(
           wrappedToken.address,
-          originalTokenChainId,
+          originalTokenEid,
           amount,
           user.address,
           false,
-          callParams,
-          adapterParams,
+          options,
+          refundAddress,
           { value: fee }
         );
 
@@ -387,7 +383,7 @@ describe("WrappedTokenBridge", () => {
       expect(await wrappedToken.balanceOf(user.address)).to.be.eq(0);
       expect(
         await wrappedTokenBridge.totalValueLocked(
-          originalTokenChainId,
+          originalTokenEid,
           originalToken.address
         )
       ).to.be.eq(0);

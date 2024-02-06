@@ -1,11 +1,15 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 const { utils, constants } = require("ethers");
+const {
+  deployLzV2Endpoint,
+  deployLzV2EndpointMock,
+} = require("./utils/lzV2Endpoint");
 
 describe("End to End", function () {
-  const ethereumChainId = 0;
-  const polygonChainId = 1;
-  const wrappedTokenChainId = 2;
+  const ethereumEid = 0;
+  const polygonEid = 1;
+  const wrappedTokenEid = 2;
   const ethereumAmount = utils.parseEther("10");
   const polygonAmount = utils.parseEther("5");
   const name = "TEST";
@@ -16,17 +20,23 @@ describe("End to End", function () {
   let owner, user;
   let ethereumERC20, weth, polygonERC20, wmatic, wrappedToken;
   let ethereumBridge, polygonBridge, wrappedTokenBridge;
-  let callParams, adapterParams;
+  let ethereumEndpoint, polygonEndpoint, wrappedTokenEndpoint;
+  let options, refundAddress;
   let ethereumAmountSD, polygonAmountSD;
 
   beforeEach(async () => {
     [owner, user] = await ethers.getSigners();
 
-    const endpointFactory = await ethers.getContractFactory("LZEndpointMock");
-    const ethereumEndpoint = await endpointFactory.deploy(ethereumChainId);
-    const polygonEndpoint = await endpointFactory.deploy(polygonChainId);
-    const wrappedTokenEndpoint = await endpointFactory.deploy(
-      wrappedTokenChainId
+    ethereumEndpoint = await deployLzV2EndpointMock(owner, ethereumEid, [
+      wrappedTokenEid,
+    ]);
+    polygonEndpoint = await deployLzV2EndpointMock(owner, polygonEid, [
+      wrappedTokenEid,
+    ]);
+    wrappedTokenEndpoint = await deployLzV2EndpointMock(
+      owner,
+      wrappedTokenEid,
+      [ethereumEid, polygonEid]
     );
 
     const wethFactory = await ethers.getContractFactory("WETH9");
@@ -37,7 +47,7 @@ describe("End to End", function () {
       "EIP173Proxy2StepWithCustomReceive"
     );
     const originalTokenBridgeFactory = await ethers.getContractFactory(
-      "OriginalTokenBridge"
+      "OriginalTokenBridgeHarness"
     );
     const ethereumBridgeImplementation =
       await originalTokenBridgeFactory.deploy(
@@ -46,7 +56,7 @@ describe("End to End", function () {
       );
     const originalTokenBridgeInitData =
       ethereumBridgeImplementation.interface.encodeFunctionData("initialize", [
-        wrappedTokenChainId,
+        wrappedTokenEid,
       ]);
 
     const ethereumBridgeProxy = await eip173ProxyFactory.deploy(
@@ -75,7 +85,7 @@ describe("End to End", function () {
       owner
     );
     const wrappedTokenBridgeFactory = await ethers.getContractFactory(
-      "WrappedTokenBridge"
+      "WrappedTokenBridgeHarness"
     );
     const wrappedTokenBridgeImplementation =
       await wrappedTokenBridgeFactory.deploy(wrappedTokenEndpoint.address);
@@ -107,49 +117,28 @@ describe("End to End", function () {
       sharedDecimals
     );
 
-    // internal bookkeeping for endpoints (not part of a real deploy, just for this test)
-    await ethereumEndpoint.setDestLzEndpoint(
-      wrappedTokenBridge.address,
-      wrappedTokenEndpoint.address
+    await ethereumBridge.setPeer(
+      wrappedTokenEid,
+      ethers.utils.hexZeroPad(wrappedTokenBridge.address, 32)
     );
-    await polygonEndpoint.setDestLzEndpoint(
-      wrappedTokenBridge.address,
-      wrappedTokenEndpoint.address
+    await wrappedTokenBridge.setPeer(
+      ethereumEid,
+      ethers.utils.hexZeroPad(wrappedTokenEndpoint.address, 32)
     );
-    await wrappedTokenEndpoint.setDestLzEndpoint(
-      ethereumBridge.address,
-      ethereumEndpoint.address
+    await wrappedTokenBridge.setPeer(
+      polygonEid,
+      ethers.utils.hexZeroPad(wrappedTokenEndpoint.address, 32)
     );
-    await wrappedTokenEndpoint.setDestLzEndpoint(
-      polygonBridge.address,
-      polygonEndpoint.address
-    );
-
-    await ethereumBridge.setTrustedRemoteAddress(
-      wrappedTokenChainId,
-      wrappedTokenBridge.address
-    );
-    await polygonBridge.setTrustedRemoteAddress(
-      wrappedTokenChainId,
-      wrappedTokenBridge.address
-    );
-    await wrappedTokenBridge.setTrustedRemoteAddress(
-      ethereumChainId,
-      ethereumBridge.address
-    );
-    await wrappedTokenBridge.setTrustedRemoteAddress(
-      polygonChainId,
-      polygonBridge.address
+    await polygonBridge.setPeer(
+      wrappedTokenEid,
+      ethers.utils.hexZeroPad(wrappedTokenBridge.address, 32)
     );
 
     await ethereumERC20.mint(user.address, ethereumAmount);
     await polygonERC20.mint(user.address, polygonAmount);
 
-    callParams = {
-      refundAddress: user.address,
-      zroPaymentAddress: constants.AddressZero,
-    };
-    adapterParams = "0x";
+    refundAddress = user.address;
+    options = "0x";
   });
 
   describe("bridge 10 ERC20 tokens from Ethereum", function () {
@@ -157,22 +146,22 @@ describe("End to End", function () {
       await ethereumBridge.registerToken(ethereumERC20.address, sharedDecimals);
       await wrappedTokenBridge.registerToken(
         wrappedToken.address,
-        ethereumChainId,
+        ethereumEid,
         ethereumERC20.address
       );
 
       await ethereumERC20
         .connect(user)
         .approve(ethereumBridge.address, ethereumAmount);
-      const fee = await ethereumBridge.estimateBridgeFee(false, adapterParams);
+      const fee = await ethereumBridge.quote(wrappedTokenEid, false, options);
       await ethereumBridge
         .connect(user)
         .bridge(
           ethereumERC20.address,
           ethereumAmount,
           user.address,
-          callParams,
-          adapterParams,
+          options,
+          refundAddress,
           { value: fee.nativeFee }
         );
 
@@ -198,7 +187,7 @@ describe("End to End", function () {
       );
       expect(
         await wrappedTokenBridge.totalValueLocked(
-          ethereumChainId,
+          ethereumEid,
           ethereumERC20.address
         )
       ).to.be.eq(ethereumAmountSD);
@@ -209,22 +198,23 @@ describe("End to End", function () {
         await polygonBridge.registerToken(polygonERC20.address, sharedDecimals);
         await wrappedTokenBridge.registerToken(
           wrappedToken.address,
-          polygonChainId,
+          polygonEid,
           polygonERC20.address
         );
 
         await polygonERC20
           .connect(user)
           .approve(polygonBridge.address, polygonAmount);
-        const fee = await polygonBridge.estimateBridgeFee(false, adapterParams);
+        const fee = await polygonBridge.quote(wrappedTokenEid, false, options);
+
         await polygonBridge
           .connect(user)
           .bridge(
             polygonERC20.address,
             polygonAmount,
             user.address,
-            callParams,
-            adapterParams,
+            options,
+            refundAddress,
             { value: fee.nativeFee }
           );
 
@@ -251,13 +241,13 @@ describe("End to End", function () {
         );
         expect(
           await wrappedTokenBridge.totalValueLocked(
-            ethereumChainId,
+            ethereumEid,
             ethereumERC20.address
           )
         ).to.be.eq(ethereumAmountSD);
         expect(
           await wrappedTokenBridge.totalValueLocked(
-            polygonChainId,
+            polygonEid,
             polygonERC20.address
           )
         ).to.be.eq(polygonAmountSD);
@@ -267,11 +257,7 @@ describe("End to End", function () {
         const amount = polygonAmountSD.add(
           utils.parseUnits("1", sharedDecimals)
         );
-        const fee = await wrappedTokenBridge.estimateBridgeFee(
-          polygonChainId,
-          false,
-          adapterParams
-        );
+        const fee = await wrappedTokenBridge.quote(polygonEid, false, options);
 
         it("reverts when called by non owner", async () => {
           await expect(
@@ -279,12 +265,12 @@ describe("End to End", function () {
               .connect(user)
               .bridge(
                 wrappedToken.address,
-                polygonChainId,
+                polygonEid,
                 amount,
                 user.address,
                 false,
-                callParams,
-                adapterParams,
+                options,
+                refundAddress,
                 { value: fee.nativeFee }
               )
           ).to.be.revertedWith(
@@ -295,25 +281,34 @@ describe("End to End", function () {
 
       describe("bridge 10 wrapped ERC20 tokens to Ethereum", function () {
         beforeEach(async () => {
-          const fee = await wrappedTokenBridge.estimateBridgeFee(
-            ethereumChainId,
+          const fee = await wrappedTokenBridge.quote(
+            ethereumEid,
             false,
-            adapterParams
+            options
           );
           await wrappedToken
             .connect(user)
             .approve(wrappedTokenBridge.address, ethereumAmountSD);
 
+          await ethereumBridge.setPeer(
+            wrappedTokenEid,
+            ethers.utils.hexZeroPad(ethereumEndpoint.address, 32)
+          );
+          await wrappedTokenBridge.setPeer(
+            ethereumEid,
+            ethers.utils.hexZeroPad(ethereumBridge.address, 32)
+          );
+
           await wrappedTokenBridge
             .connect(user)
             .bridge(
               wrappedToken.address,
-              ethereumChainId,
+              ethereumEid,
               ethereumAmountSD,
               user.address,
               false,
-              callParams,
-              adapterParams,
+              options,
+              refundAddress,
               { value: fee.nativeFee }
             );
         });
@@ -325,7 +320,7 @@ describe("End to End", function () {
           );
           expect(
             await wrappedTokenBridge.totalValueLocked(
-              ethereumChainId,
+              ethereumEid,
               ethereumERC20.address
             )
           ).to.be.eq(0);
@@ -345,26 +340,35 @@ describe("End to End", function () {
 
         describe("bridge 5 wrapped ERC20 tokens to Polygon", function () {
           beforeEach(async () => {
-            const fee = await wrappedTokenBridge.estimateBridgeFee(
-              polygonChainId,
+            const fee = await wrappedTokenBridge.quote(
+              polygonEid,
               false,
-              adapterParams
+              options
             );
 
             await wrappedToken
               .connect(user)
               .approve(wrappedTokenBridge.address, polygonAmountSD);
 
+            await polygonBridge.setPeer(
+              wrappedTokenEid,
+              ethers.utils.hexZeroPad(polygonEndpoint.address, 32)
+            );
+            await wrappedTokenBridge.setPeer(
+              polygonEid,
+              ethers.utils.hexZeroPad(polygonBridge.address, 32)
+            );
+
             await wrappedTokenBridge
               .connect(user)
               .bridge(
                 wrappedToken.address,
-                polygonChainId,
+                polygonEid,
                 polygonAmountSD,
                 user.address,
                 false,
-                callParams,
-                adapterParams,
+                options,
+                refundAddress,
                 { value: fee.nativeFee }
               );
           });
@@ -374,7 +378,7 @@ describe("End to End", function () {
             expect(await wrappedToken.balanceOf(user.address)).to.be.eq(0);
             expect(
               await wrappedTokenBridge.totalValueLocked(
-                polygonChainId,
+                polygonEid,
                 polygonERC20.address
               )
             ).to.be.eq(0);
@@ -401,14 +405,14 @@ describe("End to End", function () {
       await ethereumBridge.registerToken(weth.address, wethSharedDecimals);
       await wrappedTokenBridge.registerToken(
         wrappedToken.address,
-        ethereumChainId,
+        ethereumEid,
         weth.address
       );
 
-      const fee = await ethereumBridge.estimateBridgeFee(false, adapterParams);
+      const fee = await ethereumBridge.quote(wrappedTokenEid, false, options);
       await ethereumBridge
         .connect(user)
-        .bridgeNative(ethereumAmount, user.address, callParams, adapterParams, {
+        .bridgeNative(ethereumAmount, user.address, options, refundAddress, {
           value: ethereumAmount.add(fee.nativeFee),
         });
     });
@@ -428,7 +432,7 @@ describe("End to End", function () {
         ethereumAmount
       );
       expect(
-        await wrappedTokenBridge.totalValueLocked(ethereumChainId, weth.address)
+        await wrappedTokenBridge.totalValueLocked(ethereumEid, weth.address)
       ).to.be.eq(ethereumAmount);
     });
 
@@ -448,26 +452,31 @@ describe("End to End", function () {
         recipientBalanceBefore = toNumber(
           await ethers.provider.getBalance(user.address)
         );
-        const fee = await wrappedTokenBridge.estimateBridgeFee(
-          ethereumChainId,
-          false,
-          adapterParams
-        );
+        const fee = await wrappedTokenBridge.quote(ethereumEid, false, options);
 
         await wrappedToken
           .connect(user)
           .approve(wrappedTokenBridge.address, ethereumAmount);
 
+        await ethereumBridge.setPeer(
+          wrappedTokenEid,
+          ethers.utils.hexZeroPad(ethereumEndpoint.address, 32)
+        );
+        await wrappedTokenBridge.setPeer(
+          ethereumEid,
+          ethers.utils.hexZeroPad(ethereumBridge.address, 32)
+        );
+
         await wrappedTokenBridge
           .connect(user)
           .bridge(
             wrappedToken.address,
-            ethereumChainId,
+            ethereumEid,
             ethereumAmount,
             user.address,
             unwrapWeth,
-            callParams,
-            adapterParams,
+            options,
+            refundAddress,
             { value: fee.nativeFee }
           );
       });
@@ -476,10 +485,7 @@ describe("End to End", function () {
         expect(await wrappedToken.totalSupply()).to.be.eq(0);
         expect(await wrappedToken.balanceOf(user.address)).to.be.eq(0);
         expect(
-          await wrappedTokenBridge.totalValueLocked(
-            ethereumChainId,
-            weth.address
-          )
+          await wrappedTokenBridge.totalValueLocked(ethereumEid, weth.address)
         ).to.be.eq(0);
       });
 
