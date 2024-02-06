@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
-
+import {
+    MessagingFee
+} from "@layerzerolabs/lz-evm-protocol-v2/contracts/interfaces/ILayerZeroEndpointV2.sol";
 import {
     ReentrancyGuardUpgradeable
 } from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
-import {
-    NonblockingLzAppUpgradeable
-} from "./vendor/layerzerolabs/lzApp/NonblockingLzAppUpgradeable.sol";
+import {OAppUpgradeable} from "./vendor/layerzerolabs/oapp/OAppUpgradeable.sol";
 
 /// @dev An abstract contract containing a common functionality used by OriginalTokenBridge and WrappedTokenBridge
 abstract contract TokenBridgeBaseUpgradeable is
-    NonblockingLzAppUpgradeable,
+    OAppUpgradeable,
     ReentrancyGuardUpgradeable
 {
     /// @notice A packet type used to identify messages requesting minting of wrapped tokens
@@ -19,38 +19,25 @@ abstract contract TokenBridgeBaseUpgradeable is
     /// @notice A packet type used to identify messages requesting unlocking of original tokens
     uint8 public constant PT_UNLOCK = 1;
 
-    bool public useCustomAdapterParams;
-
-    event SetUseCustomAdapterParams(bool useCustomAdapterParams);
-
-    constructor(address _endpoint) NonblockingLzAppUpgradeable(_endpoint) {}
+    constructor(address _endpoint) OAppUpgradeable(_endpoint) {}
 
     function __TokenBridgeBase_init() internal onlyInitializing {
         __ReentrancyGuard_init_unchained();
     }
 
-    /// @notice Sets the `useCustomAdapterParams` flag indicating whether the contract uses custom adapter parameters or the default ones
-    /// @dev Can be called only by the bridge owner
-    function setUseCustomAdapterParams(
-        bool _useCustomAdapterParams
-    ) external onlyProxyAdmin {
-        useCustomAdapterParams = _useCustomAdapterParams;
-        emit SetUseCustomAdapterParams(_useCustomAdapterParams);
-    }
+    function quote(
+        uint32 _remoteEid,
+        bool _payInLzToken,
+        bytes calldata _options
+    ) external view returns (MessagingFee memory fee) {
+        // Only the message format matters when estimating fee, not the actual data
+        bytes memory message = abi.encode(
+            PT_MINT,
+            address(this),
+            address(this),
+            0
+        );
 
-    /// @dev Checks `adapterParams` for correctness
-    function _checkAdapterParams(
-        uint16 dstChainId,
-        uint16 pkType,
-        bytes memory adapterParams
-    ) internal virtual {
-        if (useCustomAdapterParams) {
-            _checkGasLimit(dstChainId, pkType, adapterParams, 0);
-        } else {
-            require(
-                adapterParams.length == 0,
-                "TokenBridgeBase: adapterParams must be empty"
-            );
-        }
+        return _quote(_remoteEid, message, _options, _payInLzToken);
     }
 }
