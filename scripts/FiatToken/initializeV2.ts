@@ -1,7 +1,7 @@
 import hre, { ethers } from "hardhat";
 import { setTimeout } from "timers/promises";
 import { TransactionResponse } from "zksync-web3/build/src/types";
-import { getDeployment } from "../getDeployment";
+import { getDeployment } from "../../utils/getDeployment";
 
 const initializeV2 = async () => {
   const { network } = hre;

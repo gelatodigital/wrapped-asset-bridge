@@ -1,19 +1,16 @@
 import { DeployFunction } from "hardhat-deploy/types";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
-
-import {
-  abi as FiatTokenV2_2Abi,
-  creationCode as FiatTokenV2_2CreationCode,
-} from "../../constants/abi/FiatToken/FiatTokenV2_2.json";
-import { create2Deploy } from "../../utils/create2Deploy";
-import { waitForConfirmation } from "../../utils/waitForConfirmation";
+import { create2Deploy } from "../utils/create2Deploy";
+import { waitForConfirmation } from "../utils/waitForConfirmation";
 
 const func: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
   const { network } = hre;
 
-  console.log(
-    `Deploying FiatTokenV2_2 to ${network.name}. Hit ctrl + c to abort\n`
-  );
+  if (network.name !== "hardhat") {
+    console.log(
+      `Deploying USDCMock to ${network.name}. Hit ctrl + c to abort\n`
+    );
+  }
 
   const { deployer } = await hre.getNamedAccounts();
   const deployerSigner = await hre.ethers.getSigner(deployer);
@@ -23,10 +20,7 @@ const func: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
 
     await waitForConfirmation();
 
-    await create2Deploy("FiatTokenV2_2", [], deployerSigner, {
-      creationCode: FiatTokenV2_2CreationCode,
-      abi: FiatTokenV2_2Abi,
-    });
+    await create2Deploy("USDCMock", ["USDCMock", "UDSC", 6], deployerSigner);
   } catch (error) {
     console.error(`Error: ${error.message}`);
   }
@@ -39,4 +33,4 @@ func.skip = async (hre: HardhatRuntimeEnvironment) => {
   return shouldSkip;
 };
 
-func.tags = ["CREATE2-FiatTokenV2_2"];
+func.tags = ["USDCMock"];
