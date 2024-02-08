@@ -33,7 +33,8 @@ const func: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
       deployerSigner
     );
   } catch (error) {
-    console.error(`Error: ${error.message}`);
+    const e = error as Error;
+    console.error(`Error: ${e.message}`);
   }
 };
 

@@ -20,7 +20,8 @@ const func: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
 
     await create2Deploy("WETH9", [], deployerSigner);
   } catch (error) {
-    console.error(`Error: ${error.message}`);
+    const e = error as Error;
+    console.error(`Error: ${e.message}`);
   }
 };
 

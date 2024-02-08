@@ -28,7 +28,8 @@ const func: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
       abi: FiatTokenV2_2Abi,
     });
   } catch (error) {
-    console.error(`Error: ${error.message}`);
+    const e = error as Error;
+    console.error(`Error: ${e.message}`);
   }
 };
 

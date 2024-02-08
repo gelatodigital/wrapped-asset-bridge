@@ -48,16 +48,16 @@ const func: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
       }
     );
   } catch (error) {
-    console.error(`Error: ${error.message}`);
-    console.log(error);
+    const e = error as Error;
+    console.error(`Error: ${e.message}`);
   }
 };
 
 export default func;
 
-// func.skip = async (hre: HardhatRuntimeEnvironment) => {
-//   const shouldSkip = hre.network.name !== "hardhat";
-//   return shouldSkip;
-// };
+func.skip = async (hre: HardhatRuntimeEnvironment) => {
+  const shouldSkip = hre.network.name !== "hardhat";
+  return shouldSkip;
+};
 
 func.tags = ["WrappedTokenBridge"];

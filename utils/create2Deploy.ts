@@ -103,12 +103,14 @@ export const create2Deploy = async (
         callOptions
       );
 
-      await setImplementation(
-        proxyAddress,
-        implementationAddress,
-        options.proxy.initData,
-        deployer
-      );
+      if (proxyAddress) {
+        await setImplementation(
+          proxyAddress,
+          implementationAddress,
+          options.proxy.initData,
+          deployer
+        );
+      }
     }
   }
 };
@@ -268,7 +270,7 @@ const saveDeploymentFiles = async (
     } catch {}
   }
 
-  const salt = isDeployingProxy ? options.proxy.salt : options.salt;
+  const salt = isDeployingProxy ? options.proxy?.salt : options.salt;
 
   const deploymentInfo = {
     address: deployedAddress,

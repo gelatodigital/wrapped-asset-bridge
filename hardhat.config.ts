@@ -23,13 +23,13 @@ const ALCHEMY_ID = process.env.ALCHEMY_ID;
 assert.ok(ALCHEMY_ID, "no Alchemy ID in process.env");
 const INFURA_ID = process.env.INFURA_ID;
 assert.ok(INFURA_ID, "no Infura ID in process.env");
-const DEPLOYER_PK = process.env.DEPLOYER_PK;
+const DEPLOYER_PK = process.env.DEPLOYER_PK as string;
 assert.ok(INFURA_ID, "no Deployer PK in process.env");
 
-const DEV_PK = process.env.DEV_PK;
+const DEV_PK = process.env.DEV_PK as string;
 const ETHERSCAN_API_KEY = process.env.ETHERSCAN_API_KEY as string;
 
-const accounts = DEV_PK ? [DEPLOYER_PK, DEV_PK] : [DEPLOYER_PK];
+const accounts: string[] = DEV_PK ? [DEPLOYER_PK, DEV_PK] : [DEPLOYER_PK];
 
 const config: HardhatUserConfig = {
   namedAccounts: {
