@@ -1,0 +1,251 @@
+{
+  "address": "0x3333589bfc83346d46ccb057997383dfe8d698c2",
+  "transactionHash": "0xa76c7ace37c2595e6fe0ff9b2006e9188faa49ca380cc40312db8adcb41257b0",
+  "args": [
+    "0x0000000000000000000000000000000000000000",
+    "0xb24033358f98118D72FC89D251cF0FF2662C886C",
+    "0x"
+  ],
+  "receipt": {
+    "to": "0x4e59b44847b379578588920cA78FbF26c0B4956C",
+    "from": "0xb24033358f98118D72FC89D251cF0FF2662C886C",
+    "contractAddress": null,
+    "transactionIndex": 0,
+    "root": "0x3075f64cbe962e7212c571c093446511e640f81d36e2464ca27f30b3f7d8474f",
+    "gasUsed": {
+      "type": "BigNumber",
+      "hex": "0x083d57"
+    },
+    "logsBloom": "0x00400000000000000000000000000000000000000000000000800000000000000000800000000000000400000000000000000000000000000000000000000000000000000000000000000000000000000001000100000000000000000000000000000000020000000000000000000800000000000000000008000000000000400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000200200000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000020000000000000000000000400000000000000000000000000000000000000000000",
+    "blockHash": "0x857ce508887dd04d867ea2ebfe5ecdbe772b6e21ee04f2ace9873b5f8cfdb596",
+    "transactionHash": "0xa76c7ace37c2595e6fe0ff9b2006e9188faa49ca380cc40312db8adcb41257b0",
+    "logs": [
+      {
+        "transactionIndex": 0,
+        "blockNumber": 27868,
+        "transactionHash": "0xa76c7ace37c2595e6fe0ff9b2006e9188faa49ca380cc40312db8adcb41257b0",
+        "address": "0x3333589BfC83346d46CCB057997383DFe8D698c2",
+        "topics": [
+          "0x8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0",
+          "0x0000000000000000000000000000000000000000000000000000000000000000",
+          "0x000000000000000000000000b24033358f98118d72fc89d251cf0ff2662c886c"
+        ],
+        "data": "0x",
+        "logIndex": 0,
+        "blockHash": "0x857ce508887dd04d867ea2ebfe5ecdbe772b6e21ee04f2ace9873b5f8cfdb596"
+      },
+      {
+        "transactionIndex": 0,
+        "blockNumber": 27868,
+        "transactionHash": "0xa76c7ace37c2595e6fe0ff9b2006e9188faa49ca380cc40312db8adcb41257b0",
+        "address": "0x3333589BfC83346d46CCB057997383DFe8D698c2",
+        "topics": [
+          "0x5570d70a002632a7b0b3c9304cc89efb62d8da9eca0dbd7752c83b7379068296",
+          "0x0000000000000000000000000000000000000000000000000000000000000000",
+          "0x0000000000000000000000000000000000000000000000000000000000000000"
+        ],
+        "data": "0x",
+        "logIndex": 1,
+        "blockHash": "0x857ce508887dd04d867ea2ebfe5ecdbe772b6e21ee04f2ace9873b5f8cfdb596"
+      }
+    ],
+    "blockNumber": 27868,
+    "confirmations": 1,
+    "cumulativeGasUsed": {
+      "type": "BigNumber",
+      "hex": "0x083d57"
+    },
+    "effectiveGasPrice": {
+      "type": "BigNumber",
+      "hex": "0x3ccbf700"
+    },
+    "status": 1,
+    "type": 0,
+    "byzantium": true
+  },
+  "salt": "0x00944617ca2f4a403c49561b529e6cb3ee22706bb3b77a53b6627d4765011f15",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "implementationAddress",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "ownerAddress",
+          "type": "address"
+        },
+        {
+          "internalType": "bytes",
+          "name": "data",
+          "type": "bytes"
+        }
+      ],
+      "stateMutability": "payable",
+      "type": "constructor"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "previousOwner",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "newOwner",
+          "type": "address"
+        }
+      ],
+      "name": "OwnershipTransferStarted",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "previousOwner",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "newOwner",
+          "type": "address"
+        }
+      ],
+      "name": "OwnershipTransferred",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "previousImplementation",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "newImplementation",
+          "type": "address"
+        }
+      ],
+      "name": "ProxyImplementationUpdated",
+      "type": "event"
+    },
+    {
+      "stateMutability": "payable",
+      "type": "fallback"
+    },
+    {
+      "inputs": [],
+      "name": "acceptOwnership",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "owner",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "pendingOwner",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes4",
+          "name": "id",
+          "type": "bytes4"
+        }
+      ],
+      "name": "supportsInterface",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "newOwner",
+          "type": "address"
+        }
+      ],
+      "name": "transferOwnership",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "newImplementation",
+          "type": "address"
+        }
+      ],
+      "name": "upgradeTo",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "newImplementation",
+          "type": "address"
+        },
+        {
+          "internalType": "bytes",
+          "name": "data",
+          "type": "bytes"
+        }
+      ],
+      "name": "upgradeToAndCall",
+      "outputs": [],
+      "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "stateMutability": "payable",
+      "type": "receive"
+    }
+  ]
+}
