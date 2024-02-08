@@ -2,7 +2,9 @@
 
 pragma solidity ^0.8.20;
 
-import { ILayerZeroEndpointV2 } from "@layerzerolabs/lz-evm-protocol-v2/contracts/interfaces/ILayerZeroEndpointV2.sol";
+import {
+    ILayerZeroEndpointV2
+} from "@layerzerolabs/lz-evm-protocol-v2/contracts/interfaces/ILayerZeroEndpointV2.sol";
 
 /**
  * @title IOAppCore
@@ -21,7 +23,10 @@ interface IOAppCore {
      * @return senderVersion The version of the OAppSender.sol contract.
      * @return receiverVersion The version of the OAppReceiver.sol contract.
      */
-    function oAppVersion() external view returns (uint64 senderVersion, uint64 receiverVersion);
+    function oAppVersion()
+        external
+        view
+        returns (uint64 senderVersion, uint64 receiverVersion);
 
     /**
      * @notice Retrieves the LayerZero endpoint associated with the OApp.
