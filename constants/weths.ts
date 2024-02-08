@@ -1,0 +1,10 @@
+export const WETHS: {
+  [network: string]: string;
+} = {
+  ethereum: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+  bsc: "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
+  polygon: "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270",
+  goerli: "0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6",
+  mumbai: "0x9c3C9283D3e44854697Cd22D3Faa240Cfb032889",
+  sepolia: "0x7b79995e5f793A07Bc00c21412e50Ecae098E7f9",
+};
