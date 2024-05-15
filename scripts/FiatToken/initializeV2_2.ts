@@ -1,7 +1,7 @@
 import hre, { ethers } from "hardhat";
 import { setTimeout } from "timers/promises";
 import { TransactionResponse } from "zksync-web3/build/src/types";
-import { getDeployment } from "../getDeployment";
+import { getDeployment } from "../../utils/getDeployment";
 
 const initializeV2_2 = async () => {
   const { network } = hre;
@@ -22,7 +22,7 @@ const initializeV2_2 = async () => {
    * @param accountsToBlacklist   A list of accounts to migrate from the old blacklist
    * @param newSymbol             New token symbol
    */
-  const accountsToBlacklist = []; // Todo: update
+  const accountsToBlacklist: string[] = []; // Todo: update
   const newSymbol = "USDC.e"; // Todo: update
 
   await setTimeout(10000);

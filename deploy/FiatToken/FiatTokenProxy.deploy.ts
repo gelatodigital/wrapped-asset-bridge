@@ -1,19 +1,19 @@
 import { DeployFunction } from "hardhat-deploy/types";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 
-import { setTimeout } from "timers/promises";
 import {
   abi as FiatTokenProxyAbi,
   creationCode as FiatTokenProxyCreationCode,
-} from "../../constants/FiatTokenProxy.json";
-import { create2Deploy } from "../../scripts/create2Deploy";
-import { getDeployment } from "../../scripts/getDeployment";
+} from "../../constants/abi/FiatToken/FiatTokenProxy.json";
+import { create2Deploy } from "../../utils/create2Deploy";
+import { getDeployment } from "../../utils/getDeployment";
+import { waitForConfirmation } from "../../utils/waitForConfirmation";
 
 const func: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
   const { network } = hre;
 
   console.log(
-    `Deploying FiatTokenProxy to ${network.name}. Hit ctrl + c to abort`
+    `Deploying FiatTokenProxy to ${network.name}. Hit ctrl + c to abort\n`
   );
 
   const { deployer } = await hre.getNamedAccounts();
@@ -27,21 +27,21 @@ const func: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
      * In FiatTokenProxy.sol :
      * constructor(address implementationContract)
      */
-
     const fiatTokenProxyCreationCodeUpdated =
       FiatTokenProxyCreationCode.slice(0, -40) + fiatTokenV2_2.address.slice(2);
 
     console.log(`Deployer: ${deployer}`);
     console.log(`FiatTokenV2_2 address: ${fiatTokenV2_2.address}`);
 
-    await setTimeout(10000);
+    await waitForConfirmation();
 
     await create2Deploy("FiatTokenProxy", [], deployerSigner, {
       creationCode: fiatTokenProxyCreationCodeUpdated,
       abi: FiatTokenProxyAbi,
     });
   } catch (error) {
-    console.error(`Error: ${error.message}`);
+    const e = error as Error;
+    console.error(`Error: ${e.message}`);
   }
 };
 

@@ -1,44 +1,55 @@
 import { DeployFunction } from "hardhat-deploy/types";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
-import { setTimeout } from "timers/promises";
-import LZ_ENDPOINTS from "../constants/layerzeroEndpoints.json";
-import { create2Deploy } from "../scripts/create2Deploy";
+import { DEPLOYER_ADDRESS, LAYERZEROV2_ENDPOINT } from "../constants";
+import { create2Deploy } from "../utils/create2Deploy";
+import { waitForConfirmation } from "../utils/waitForConfirmation";
 
 const func: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
-  const { network } = hre;
+  const { network, ethers } = hre;
 
   console.log(
-    `Deploying WrappedTokenBridge to ${network.name}. Hit ctrl + c to abort`
+    `Deploying WrappedTokenBridge to ${network.name}. Hit ctrl + c to abort\n`
   );
 
   const { deployer } = await hre.getNamedAccounts();
-  const deployerSigner = await hre.ethers.getSigner(deployer);
+  const deployerSigner = await ethers.getSigner(deployer);
+
+  if (deployer != DEPLOYER_ADDRESS) {
+    throw new Error(
+      `Deployer is not expected deployer. Check DEPLOYER_PK in .env`
+    );
+  }
 
   try {
-    const ownerAddress = deployer; // Todo: update to true owner address
-    const lzEndpointAddress = LZ_ENDPOINTS[network.name];
+    const ownerAddress = DEPLOYER_ADDRESS;
+    const lzEndpointAddress = LAYERZEROV2_ENDPOINT[network.name].address;
 
     console.log(`Deployer: ${deployer}`);
-    console.log(`[${network.name}] Owner Address: ${ownerAddress}`);
-    console.log(`[${network.name}] Endpoint Address: ${lzEndpointAddress}`);
-
-    await setTimeout(10000);
+    console.log(`Owner Address: ${ownerAddress}`);
+    console.log(`Endpoint Address: ${lzEndpointAddress}`);
 
     const initData = (
-      await hre.ethers.getContractFactory("WrappedTokenBridge")
+      await ethers.getContractFactory("WrappedTokenBridge")
     ).interface.encodeFunctionData("initialize", []);
+
+    await waitForConfirmation();
 
     await create2Deploy(
       "WrappedTokenBridge",
       [lzEndpointAddress],
       deployerSigner,
       {
-        proxy: { type: "EIP173Proxy2StepWithReceive", ownerAddress, initData },
+        proxy: {
+          type: "EIP173Proxy2StepWithCustomReceive",
+          ownerAddress,
+          initData,
+          salt: "WrappedTokenBridge",
+        },
       }
     );
   } catch (error) {
-    console.error(`Error: ${error.message}`);
-    console.log(error);
+    const e = error as Error;
+    console.error(`Error: ${e.message}`);
   }
 };
 
@@ -49,4 +60,4 @@ func.skip = async (hre: HardhatRuntimeEnvironment) => {
   return shouldSkip;
 };
 
-func.tags = ["CREATE2-WrappedTokenBridge"];
+func.tags = ["WrappedTokenBridge"];

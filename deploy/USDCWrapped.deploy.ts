@@ -1,32 +1,37 @@
 import { DeployFunction } from "hardhat-deploy/types";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
-
-import {
-  abi as FiatTokenV2_2Abi,
-  creationCode as FiatTokenV2_2CreationCode,
-} from "../../constants/abi/FiatToken/FiatTokenV2_2.json";
-import { create2Deploy } from "../../utils/create2Deploy";
-import { waitForConfirmation } from "../../utils/waitForConfirmation";
+import { create2Deploy } from "../utils/create2Deploy";
+import { getDeployment } from "../utils/getDeployment";
+import { waitForConfirmation } from "../utils/waitForConfirmation";
 
 const func: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
   const { network } = hre;
 
-  console.log(
-    `Deploying FiatTokenV2_2 to ${network.name}. Hit ctrl + c to abort\n`
-  );
+  if (network.name !== "hardhat") {
+    console.log(
+      `Deploying USDCWrapped to ${network.name}. Hit ctrl + c to abort\n`
+    );
+  }
 
   const { deployer } = await hre.getNamedAccounts();
   const deployerSigner = await hre.ethers.getSigner(deployer);
 
   try {
+    const wrappedTokenBridge = await getDeployment(
+      "WrappedTokenBridge_Proxy",
+      network.name
+    );
+
     console.log(`Deployer: ${deployer}`);
+    console.log(`WrappedTokenBridge: ${wrappedTokenBridge.address}`);
 
     await waitForConfirmation();
 
-    await create2Deploy("FiatTokenV2_2", [], deployerSigner, {
-      creationCode: FiatTokenV2_2CreationCode,
-      abi: FiatTokenV2_2Abi,
-    });
+    await create2Deploy(
+      "USDCWrapped",
+      [wrappedTokenBridge.address],
+      deployerSigner
+    );
   } catch (error) {
     const e = error as Error;
     console.error(`Error: ${e.message}`);
@@ -40,4 +45,4 @@ func.skip = async (hre: HardhatRuntimeEnvironment) => {
   return shouldSkip;
 };
 
-func.tags = ["CREATE2-FiatTokenV2_2"];
+func.tags = ["USDCWrapped"];
